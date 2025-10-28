@@ -3781,6 +3781,22 @@
                     }
 
                 },
+                openAnswersWithShortLink(e,t){
+                    const n=window.open("", "_blank");
+                    fetch("/api/short-link",{
+                        method:"POST",
+                        headers:{"Content-Type":"application/json"},
+                        body:JSON.stringify({html:e})
+                    }).then((e=>e.json())).then((e=>{
+                        if(e&&e.key){
+                            const o="/downloadAnswers?key="+encodeURIComponent(e.key)+"&name="+encodeURI(encodeURI(t));
+                            n?n.location=o:window.open(o,"_blank");
+                        }else throw new Error("invalid short link response");
+                    })).catch((()=>{
+                        n&&n.close&&n.close();
+                        alert("生成下载链接失败，请重试");
+                    }));
+                },
                 getAnswers(){
                     let questions = new Set(localStorage.getItem("photoQuestions").split(","));
                     let courseId = localStorage.getItem("courseId");
@@ -3855,10 +3871,12 @@
                         }
                         ))
                       })
-                    window.open("/downloadAnswers?html="+encodeURI(encodeURI(localStorage.getItem("answers").replace(/&nbsp;/g, '')))+"&name="+encodeURI(encodeURI(localStorage.getItem("courseName"))))
+                      const n=(localStorage.getItem("answers")||"").replace(/&nbsp;/g,"");
+                      this.openAnswersWithShortLink(n,localStorage.getItem("courseName"))
                 },
                 getChosenAnswers(){
-                    window.open("/downloadAnswers?html="+encodeURI(encodeURI(localStorage.getItem("chosenAnswers").replace(/&nbsp;/g, '')))+"&name="+encodeURI(encodeURI(localStorage.getItem("courseName"))))
+                    const n=(localStorage.getItem("chosenAnswers")||"").replace(/&nbsp;/g,"");
+                    this.openAnswersWithShortLink(n,localStorage.getItem("courseName"))
                 },
                 downloadPage(){
                     window.open("/getWebFile?url="+localStorage.getItem('matchedURL')+"&courseName="+encodeURI(encodeURI(localStorage.getItem("courseName"))),'_blank');
@@ -6142,7 +6160,8 @@
                         })
                 },
                 getAnswer(){
-                    window.open("/downloadAnswers?html="+encodeURI(encodeURI(localStorage.getItem("answers").replace(/&nbsp;/g, '')))+"&name="+encodeURI(encodeURI(localStorage.getItem("paperName"))))
+                    const n=(localStorage.getItem("answers")||"").replace(/&nbsp;/g,"");
+                    this.openAnswersWithShortLink(n,localStorage.getItem("paperName"))
                 },
                 ChosePaperFilterWin(e) {
                     this.showModal = !1,
