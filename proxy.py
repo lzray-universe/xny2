@@ -11,11 +11,37 @@ import pdfkit
 import aiohttp;
 import asyncio;
 import ssl;
+from threading import Lock
 from urllib import parse;
 from flask import Flask, request, Response, redirect,send_from_directory,make_response,jsonify
 
 TARGET_URL = 'https://bdfz.xnykcxt.com:5002'
 app = Flask(__name__)
+
+SHORT_LINK_TTL = 300
+_short_link_cache = {}
+_short_link_lock = Lock()
+
+
+def _store_short_link(html_content: str) -> str:
+    """Persist html content temporarily and return a short identifier."""
+    key = getName()
+    now = time.time()
+    with _short_link_lock:
+        _short_link_cache[key] = {"html": html_content, "created_at": now}
+    return key
+
+
+def _consume_short_link(key: str):
+    """Retrieve and invalidate html content for a given identifier."""
+    with _short_link_lock:
+        data = _short_link_cache.get(key)
+        if not data:
+            return None
+        if time.time() - data["created_at"] > SHORT_LINK_TTL:
+            _short_link_cache.pop(key, None)
+            return None
+        return _short_link_cache.pop(key)["html"]
 
 async def get(session,url,headers = None):
     async with session.get(url,headers=headers) as response:
@@ -190,9 +216,25 @@ def downloadFile():
     headers=[("content-disposition","attachment;filename*=utf-8'zh_cn'%s.%s"%(name,url.split(".")[-1])),("content-type","application/force-download")]
     return Response(file,200,headers);
 
+@app.route("/api/short-link", methods=["POST"])
+def create_short_link():
+    payload = request.get_json(silent=True) or {}
+    html = payload.get("html")
+    if not html:
+        return jsonify({"message": "html is required"}), 400
+    key = _store_short_link(html)
+    return jsonify({"key": key, "ttl": SHORT_LINK_TTL})
+
 @app.route("/downloadAnswers",methods=["GET"])
 def downloadAnswers():
-    html=parse.unquote(request.args.get("html"));
+    key = request.args.get("key")
+    html = None
+    if key:
+        html = _consume_short_link(key)
+        if html is None:
+            return Response("链接已失效，请重新生成。", status=410, mimetype='text/plain; charset=utf-8')
+    else:
+        html=parse.unquote(request.args.get("html"));
     name=request.args.get("name");
     fileName = getName();
     output_pdf_path = 'pdfs/%s.pdf' % fileName;
