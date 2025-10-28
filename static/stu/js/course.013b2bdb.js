@@ -3803,7 +3803,7 @@
                             o?o.location=n:window.open(n,"_blank");
                         }else throw new Error("invalid short link response");
                     })).catch((()=>{
-                        const e="/downloadAnswers?name="+r+"&html="+encodeURIComponent(n);
+                        const e="/downloadAnswers?name="+r+"&html="+encodeURIComponent(encodeURIComponent(n));
                         o?o.location=e:window.open(e,"_blank");
                     }));
                 },
