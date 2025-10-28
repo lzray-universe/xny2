@@ -19,29 +19,84 @@ TARGET_URL = 'https://bdfz.xnykcxt.com:5002'
 app = Flask(__name__)
 
 SHORT_LINK_TTL = 300
-_short_link_cache = {}
+SHORT_LINK_DIR = os.path.join(os.path.dirname(__file__), "short_links")
 _short_link_lock = Lock()
+
+
+def _ensure_short_link_dir():
+    """Make sure the directory used to store temporary short links exists."""
+    os.makedirs(SHORT_LINK_DIR, exist_ok=True)
+
+
+def _cleanup_expired_short_links(current_time: float) -> None:
+    """Remove any persisted short links that have exceeded their TTL."""
+    if not os.path.isdir(SHORT_LINK_DIR):
+        return
+
+    cutoff = current_time - SHORT_LINK_TTL
+    for filename in os.listdir(SHORT_LINK_DIR):
+        if not filename.endswith(".json"):
+            continue
+        path = os.path.join(SHORT_LINK_DIR, filename)
+        try:
+            with open(path, "r", encoding="utf-8") as handle:
+                payload = json.load(handle)
+        except (OSError, json.JSONDecodeError):
+            try:
+                os.remove(path)
+            except OSError:
+                pass
+            continue
+
+        if payload.get("created_at", 0) < cutoff:
+            try:
+                os.remove(path)
+            except OSError:
+                pass
 
 
 def _store_short_link(html_content: str) -> str:
     """Persist html content temporarily and return a short identifier."""
     key = getName()
     now = time.time()
+    _ensure_short_link_dir()
+    payload = {"html": html_content, "created_at": now}
+    tmp_path = os.path.join(SHORT_LINK_DIR, f"{key}.json.tmp")
+    final_path = os.path.join(SHORT_LINK_DIR, f"{key}.json")
+
     with _short_link_lock:
-        _short_link_cache[key] = {"html": html_content, "created_at": now}
+        _cleanup_expired_short_links(now)
+        with open(tmp_path, "w", encoding="utf-8") as handle:
+            json.dump(payload, handle)
+        os.replace(tmp_path, final_path)
     return key
 
 
 def _consume_short_link(key: str):
     """Retrieve and invalidate html content for a given identifier."""
+    final_path = os.path.join(SHORT_LINK_DIR, f"{key}.json")
     with _short_link_lock:
-        data = _short_link_cache.get(key)
-        if not data:
+        if not os.path.exists(final_path):
             return None
-        if time.time() - data["created_at"] > SHORT_LINK_TTL:
-            _short_link_cache.pop(key, None)
+        try:
+            with open(final_path, "r", encoding="utf-8") as handle:
+                payload = json.load(handle)
+        except (OSError, json.JSONDecodeError):
+            try:
+                os.remove(final_path)
+            except OSError:
+                pass
             return None
-        return _short_link_cache.pop(key)["html"]
+
+        try:
+            os.remove(final_path)
+        except OSError:
+            pass
+
+        created_at = payload.get("created_at", 0)
+        if time.time() - created_at > SHORT_LINK_TTL:
+            return None
+        return payload.get("html")
 
 async def get(session,url,headers = None):
     async with session.get(url,headers=headers) as response:
