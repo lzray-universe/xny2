@@ -3781,6 +3781,36 @@
                     }
 
                 },
+                generateAnswerHtml(){
+                    if(!Array.isArray(this.paperContentData))
+                        return "";
+                    const e=[];
+                    this.paperContentData.forEach((t=>{
+                        if(2!==t.contentType)
+                            return;
+                        const n=t.content||{};
+                        if(n.chooseZoneCounts>1&&Array.isArray(n.childList))
+                            n.childList.forEach((t=>{
+                                if(!t)
+                                    return;
+                                const n=null!=t.questionNumber?t.questionNumber:"";
+                                const o=null!=t.answerCard;
+                                const r=t.answer||"";
+                                const a=t.questionAnalysis||"";
+                                const s=`<p>题号${n}${o?`:${r}`:""}</p>`;
+                                e.push(s+(o?"":r)+a+"<br><br>");
+                            }));
+                        else if(n&&null!=n.questionNumber){
+                            const t=null!=n.questionNumber?n.questionNumber:"";
+                            const o=null!=n.answerCard;
+                            const r=n.answer||"";
+                            const a=n.questionAnalysis||"";
+                            const s=`<p>题号${t}${o?`:${r}`:""}</p>`;
+                            e.push(s+(o?"":r)+a+"<br><br>");
+                        }
+                    }));
+                    return e.join("");
+                },
                 openAnswersWithShortLink(e,t){
                     const n=(e||"").trim();
                     if(!n){
@@ -6170,7 +6200,11 @@
                         })
                 },
                 getAnswer(){
-                    const n=(localStorage.getItem("answers")||"").replace(/&nbsp;/g,"");
+                    let n=(localStorage.getItem("answers")||"").replace(/&nbsp;/g,"");
+                    if(!n.trim()){
+                        const e=this.generateAnswerHtml();
+                        e&&(n=e,localStorage.setItem("answers",e));
+                    }
                     this.openAnswersWithShortLink(n,localStorage.getItem("paperName"))
                 },
                 ChosePaperFilterWin(e) {
