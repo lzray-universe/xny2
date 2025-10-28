@@ -58,6 +58,10 @@ def getName():
     return result
 
 def convert_html_to_pdf(html_content, output_pdf_path):
+    # Ensure target directory exists so wkhtmltopdf can write output
+    output_dir = os.path.dirname(output_pdf_path)
+    if output_dir and not os.path.exists(output_dir):
+        os.makedirs(output_dir, exist_ok=True)
     # 使用 BeautifulSoup 解析 HTML
     html_content = """<style>
     img {
