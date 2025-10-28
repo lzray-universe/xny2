@@ -3782,19 +3782,29 @@
 
                 },
                 openAnswersWithShortLink(e,t){
-                    const n=window.open("", "_blank");
+                    const n=(e||"").trim();
+                    if(!n){
+                        return void alert("暂无可下载的答案解析");
+                    }
+                    const o=window.open("", "_blank"),
+                    r=encodeURI(encodeURI(t||"答案解析"));
                     fetch("/api/short-link",{
                         method:"POST",
                         headers:{"Content-Type":"application/json"},
-                        body:JSON.stringify({html:e})
-                    }).then((e=>e.json())).then((e=>{
+                        body:JSON.stringify({html:n})
+                    }).then((e=>{
+                        if(!e.ok)
+                            throw new Error("short link request failed");
+                        return e.json()
+                    }
+                    )).then((e=>{
                         if(e&&e.key){
-                            const o="/downloadAnswers?key="+encodeURIComponent(e.key)+"&name="+encodeURI(encodeURI(t));
-                            n?n.location=o:window.open(o,"_blank");
+                            const n="/downloadAnswers?key="+encodeURIComponent(e.key)+"&name="+r;
+                            o?o.location=n:window.open(n,"_blank");
                         }else throw new Error("invalid short link response");
                     })).catch((()=>{
-                        n&&n.close&&n.close();
-                        alert("生成下载链接失败，请重试");
+                        const e="/downloadAnswers?name="+r+"&html="+encodeURIComponent(n);
+                        o?o.location=e:window.open(e,"_blank");
                     }));
                 },
                 getAnswers(){
